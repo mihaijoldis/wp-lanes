@@ -24,7 +24,7 @@ export function loadSite(requested) {
 	if (!name) {
 		if (sites.length !== 1) {
 			throw new Error(sites.length === 0
-				? 'No site configured. Run `wp-lanes init-site <name> --domain <local-site-domain>` first (for example `wp-lanes init-site edd --domain edd.local`).'
+				? 'No site configured. Run `wp-lanes init-site <name> --domain <local-site-domain>` first (for example `wp-lanes init-site mysite --domain mysite.local`).'
 				: `Several sites configured (${sites.join(', ')}); pass --site <name>.`);
 		}
 		name = sites[0];

@@ -1,8 +1,8 @@
 {
 	"WinSite01": {
-		"name": "edd",
-		"domain": "edd.local",
-		"path": "D:\\Local\\Sites\\edd",
+		"name": "mysite",
+		"domain": "mysite.local",
+		"path": "C:\\Users\\u\\Local Sites\\mysite",
 		"environment": "flywheel",
 		"mysql": { "database": "local", "user": "root", "password": "fixture-pass" },
 		"ports": {},
@@ -14,9 +14,9 @@
 		}
 	},
 	"MacSite02": {
-		"name": "edd",
-		"domain": "Edd-Mac.local",
-		"path": "~/Local Sites/edd",
+		"name": "mysite",
+		"domain": "MySite-Mac.local",
+		"path": "~/Local Sites/mysite",
 		"environment": "flywheel",
 		"mysql": { "database": "local", "user": "root", "password": "fixture-pass" },
 		"ports": {},
