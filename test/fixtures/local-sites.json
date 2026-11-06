@@ -1,0 +1,30 @@
+{
+	"WinSite01": {
+		"name": "edd",
+		"domain": "edd.local",
+		"path": "D:\\Local\\Sites\\edd",
+		"environment": "flywheel",
+		"mysql": { "database": "local", "user": "root", "password": "fixture-pass" },
+		"ports": {},
+		"id": "WinSite01",
+		"services": {
+			"nginx": { "name": "nginx", "version": "1.26.1", "type": "lightning", "role": "http", "ports": { "HTTP": [10004] } },
+			"mysql": { "name": "mysql", "version": "8.0.35", "type": "lightning", "role": "db", "ports": { "MYSQL": [10005] } },
+			"php": { "role": "php", "name": "php", "version": "8.4.10", "type": "lightning", "ports": { "cgi": [10002, 10003] } }
+		}
+	},
+	"MacSite02": {
+		"name": "edd",
+		"domain": "Edd-Mac.local",
+		"path": "~/Local Sites/edd",
+		"environment": "flywheel",
+		"mysql": { "database": "local", "user": "root", "password": "fixture-pass" },
+		"ports": {},
+		"id": "MacSite02",
+		"services": {
+			"nginx": { "name": "nginx", "version": "1.26.1", "type": "lightning", "role": "http", "ports": { "HTTP": [10014] } },
+			"mysql": { "name": "mariadb", "version": "10.6.23", "type": "lightning", "role": "db", "ports": { "MYSQL": [10015] } },
+			"php": { "role": "php", "name": "php", "version": "8.2.27", "type": "lightning", "ports": { "fpm": [10012] } }
+		}
+	}
+}

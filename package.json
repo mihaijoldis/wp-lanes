@@ -1,0 +1,16 @@
+{
+	"name": "wp-lanes",
+	"version": "0.1.0",
+	"description": "Live-test several branches on one WordPress site at once: per-request plugin directories and databases selected by header, cookie or env.",
+	"type": "module",
+	"bin": {
+		"wp-lanes": "bin/wp-lanes.js"
+	},
+	"engines": {
+		"node": ">=20"
+	},
+	"scripts": {
+		"test": "node --test"
+	},
+	"license": "MIT"
+}
