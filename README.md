@@ -60,10 +60,10 @@ Local update changes the site's PHP version or its `run/<id>` directory, `init-s
 The Local site must already exist and be started on that machine. Then, in order:
 
 ```
-git clone <wp-lanes repo> ~/Personal-Projects/wp-lanes
+git clone https://github.com/mihaijoldis/wp-lanes.git ~/Personal-Projects/wp-lanes
 cd ~/Personal-Projects/wp-lanes
 npm link
-wp-lanes init-site edd --domain edd.local
+wp-lanes init-site edd --domain edd.local     # your Local site's domain; name the config whatever you like
 wp-lanes doctor
 wp-lanes install-shim
 wp-lanes up smoke --from <a worktree of the plugins repo or of a plugin repo>
@@ -77,6 +77,26 @@ with no site configured, it lists the domains Local knows and the `init-site` li
 
 If `wp-lanes` answers "permission denied" on macOS after `npm link`, run
 `chmod +x bin/wp-lanes.js` in the checkout.
+
+From then on, the one rule: never check out, reset or stash a branch in the site's
+`wp-content/plugins` or in any repo nested inside it. Those are the base every lane links to, so a
+switch there changes every lane at once. Branches live in git worktrees and reach the site through
+`wp-lanes up`.
+
+### Telling your AI agent to use it
+
+The tool needs no agent integration; `up`, the header and `down` are enough by hand. For an agent to
+pick it on its own, add this to the instructions file your tool reads on every session
+(`~/.claude/CLAUDE.md` or a file under `~/.claude/rules/` for Claude Code; `AGENTS.md` for most
+others), with your own site path:
+
+> The local site at `<site path>` is the base every wp-lanes lane links to: never check out, reset
+> or stash a branch in its `wp-content/plugins` or any repo nested in it. To test a branch live,
+> make a git worktree of that repo (`git -C <site>/wp-content/plugins/<plugin> worktree add
+> <path> <sha-or-branch>`), run `wp-lanes up <name> --from <worktree>` (clones the DB), send
+> `X-WP-Lane: <name>` on every request or use `wp-lanes wp <name> -- <wp-cli args>`, confirm the
+> `X-WP-Lane` response header once, and `wp-lanes down <name>` when done. Requests without a
+> selector (cron, inbound webhooks) hit the base, and Local gives the site 2 PHP workers.
 
 ### Known differences on macOS
 
