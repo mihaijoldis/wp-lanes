@@ -11,9 +11,18 @@ export function bin(config, name) {
 	return dir ? path.join(dir, `${name}${exe}`) : name;
 }
 
-function connArgs(config) {
-	const { host, user } = config.mysql;
+// A socket wins over host and port: Local's macOS MySQL refuses TCP for root.
+export function connArgs(config) {
+	const { host, user, socket } = config.mysql;
+	if (socket) {
+		return ['--protocol=socket', `--socket=${socket}`, '-u', user];
+	}
 	return ['-h', host, '-P', String(mysqlPort(config)), '-u', user];
+}
+
+// Where the client connects, for messages.
+export function mysqlTarget(config) {
+	return config.mysql.socket ? `socket ${config.mysql.socket}` : `${config.mysql.host}:${mysqlPort(config)}`;
 }
 
 // The password travels in the environment so it never shows up in a process list or a warning.

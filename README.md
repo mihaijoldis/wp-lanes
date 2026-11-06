@@ -30,15 +30,17 @@ fills in the config:
 | PHP | `<Local>/lightning-services/php-<version>[+<n>]/bin/<platform>/php[.exe]` (or `.../bin/php`), with `-c <Local>/run/<siteId>/conf/php/php.ini` |
 | MySQL bin dir | `<Local>/lightning-services/<mysql or mariadb>-<version>[+<n>]/bin/<platform>/bin` |
 | MySQL port | `services.mysql.ports.MYSQL[0]`, re-read from `sites.json` on every run |
+| MySQL socket (macOS/Linux) | `socket =` in `<Local>/run/<siteId>/conf/mysql/my.cnf`; when set, the client connects over it instead of the port |
 | MySQL user, password, database | the site's `mysql` record |
 | WP-CLI | Local's bundled `wp-cli.phar`, else `wp` on PATH |
 
 `<Local>` is `%APPDATA%/Local` on Windows and `~/Library/Application Support/Local` on macOS.
 `<platform>` is `win64` on Windows, `darwin-arm64` then `darwin` on macOS. When several builds of
-the version exist, the newest one whose binary is present wins.
+the version exist, the newest one whose binary is present wins; a candidate counts only if it is a
+file, not a directory of the same name.
 
 Every flag still works and overrides the discovered value (`--php`, `--php-arg`, `--wp-cli`,
-`--mysql-bin`, `--mysql-port`, `--site-url`, `--web-root`, `--local-sites-json`, ...). Without
+`--mysql-bin`, `--mysql-port`, `--mysql-socket`, `--site-url`, `--web-root`, `--local-sites-json`, ...). Without
 `--domain`, pass them all yourself:
 
 ```
@@ -49,7 +51,9 @@ wp-lanes init-site edd --web-root D:/Local/Sites/edd/app/public --site-url https
 ```
 
 If the site's config file already exists, `init-site` does nothing when the result is identical,
-and otherwise prints a diff (password redacted) and stops. Pass `--force` to overwrite.
+and otherwise prints a diff (password redacted) and stops. Pass `--force` to overwrite. After a
+Local update changes the site's PHP version or its `run/<id>` directory, `init-site <name> --domain
+<domain> --force` picks up the new paths; the diff it prints first shows what moved.
 
 ## Setting up on another machine
 
@@ -76,27 +80,38 @@ If `wp-lanes` answers "permission denied" on macOS after `npm link`, run
 
 ### Known differences on macOS
 
-The macOS paths are taken from Local's documented layout and have not been run yet. They are
-expected; confirm them with `wp-lanes doctor`.
+First run on a Mac: Local 9.x, PHP 8.5.3, MySQL 8.0.35. Confirm a new machine with
+`wp-lanes doctor`.
 
 - **Symlinks instead of junctions.** Lane plugin dirs are symlinks; `down` unlinks each one and
   never descends into it. No admin rights are needed on either platform.
-- **php-fpm instead of php-cgi.** Local on macOS runs PHP-FPM, so the 2-worker limit under
-  "Limits" is a Windows measurement; the macOS pool size is not measured.
+- **php-fpm instead of php-cgi.** Local on macOS runs PHP-FPM with `pm = static` and
+  `pm.max_children = 2` (`php-fpm.d/www.conf`), so both platforms queue requests once more than 2
+  are in flight (see "Limits").
 - **`run/<siteId>` differs per machine.** Local gives the same site a different id on each machine,
   so the php.ini path and `localSiteId` differ. Never copy `~/.wp-lanes/sites/*.json` between
   machines; run `init-site --domain` on each.
-- **sites.json location.** `~/Library/Application Support/Local/sites.json`, and `site.path` there is
-  usually `~/Local Sites/<name>` (with a space). Both are expected, confirm with `wp-lanes doctor`.
-- **PHP binary dir.** Expected at `.../bin/darwin-arm64/bin/php` (Apple silicon) or
-  `.../bin/darwin/...` (Intel); discovery tries both. Confirm with `wp-lanes doctor`.
+- **sites.json location.** `~/Library/Application Support/Local/sites.json`. `site.path` there is
+  `~/Local Sites/<name>` (with a space) on a fresh Local install, but whatever the site was created
+  with otherwise: on the first Mac it is `~/Local-Sites/<name>` (no space). Discovery uses the value
+  as stored.
+- **PHP binary dir.** `.../bin/darwin-arm64/bin/php` (Apple silicon) or `.../bin/darwin/bin/php`
+  (Intel). `.../bin/darwin-arm64/php` also exists there, as a directory, so discovery accepts only
+  a file at each candidate.
 - **WP-CLI.** Expected at
   `/Applications/Local.app/Contents/Resources/extraResources/bin/wp-cli/wp-cli.phar`. If it is
   missing, discovery falls back to `wp` on PATH, which runs with its own PHP and not Local's
   php.ini; Local's `DB_HOST` uses a socket that only Local's php.ini knows, so `wp-lanes wp` may not
   reach the database. Point `wpCli` at Local's phar if that happens.
-- **MySQL over TCP.** The tool's own `mysql`/`mysqldump` connect to `127.0.0.1:<port>` with the
-  password in `MYSQL_PWD`, never on the command line. `doctor` shows whether that port answers.
+- **MySQL over a socket.** Local's MySQL on macOS grants root only `@localhost` and runs with
+  `skip-name-resolve`, so TCP to `127.0.0.1:<port>` fails with ERROR 1130, and `localhost` without a
+  socket path tries `/tmp/mysql.sock` and fails with ERROR 2002. `init-site` reads `socket =` from
+  `<Local>/run/<siteId>/conf/mysql/my.cnf` (the same path `wp-config.php` has in
+  `DB_HOST 'localhost:<socket>'`) and the tool's `mysql`/`mysqldump` connect with
+  `--protocol=socket --socket=<path>`. On Windows the socket line is ignored and the client uses
+  `127.0.0.1:<port>`. Either way the password goes in `MYSQL_PWD`, never on the command line.
+  `doctor` shows the socket (exists or missing) and, if MySQL does not answer, the client's own
+  error line.
 - **`.local` lookups.** macOS can route `.local` names to Bonjour, which makes the first request
   slow; Local's hosts-file entry normally prevents it. Local's router must be in "Site Domains" mode
   for `https://<domain>` to resolve; `doctor`'s 200 check catches a mismatch.
@@ -198,7 +213,7 @@ has. If someone switches a base repo's branch, every lane sees that switch too.
 
 ## Limits
 
-- Local on Windows runs 2 php-cgi workers for the whole site, so requests across all lanes queue
-  once more than 2 are in flight.
+- Local runs 2 PHP workers for the whole site (php-cgi on Windows, a static php-fpm pool on
+  macOS), so requests across all lanes queue once more than 2 are in flight.
 - Each lane DB is a full copy of the base DB; `up` takes a few seconds per 25 MB.
 - A `--no-db` lane shares the base database, so its writes change the base site.

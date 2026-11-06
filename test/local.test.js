@@ -1,15 +1,18 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { configFromLocal, findSiteByDomain, localDataDir, wpCliCandidates } from '../src/local.js';
-import { expandHome } from '../src/paths.js';
+import os from 'node:os';
+import path from 'node:path';
+import { configFromLocal, findSiteByDomain, isFile, localDataDir, socketFromMyCnf, wpCliCandidates } from '../src/local.js';
+import { connArgs } from '../src/db.js';
+import { expandHome, toSlash } from '../src/paths.js';
 
 const sites = JSON.parse(fs.readFileSync(new URL('./fixtures/local-sites.json', import.meta.url), 'utf8'));
 
 const WIN_DATA = 'C:/Users/u/AppData/Roaming/Local';
 const MAC_DATA = '/Users/mihai/Library/Application Support/Local';
 
-function windowsCtx(existing, lightningDirs = ['php-8.4.10+0', 'php-8.4.16+1', 'mysql-8.0.35+4', 'mysql-8.4.0', 'mariadb-10.4.32+1']) {
+function windowsCtx(existing, lightningDirs = ['php-8.4.10+0', 'php-8.4.16+1', 'mysql-8.0.35+4', 'mysql-8.4.0', 'mariadb-10.4.32+1'], files = {}) {
 	const present = new Set(existing);
 	return {
 		platform: 'win32',
@@ -18,12 +21,13 @@ function windowsCtx(existing, lightningDirs = ['php-8.4.10+0', 'php-8.4.16+1', '
 		dataDir: WIN_DATA,
 		sitesJsonPath: `${WIN_DATA}/sites.json`,
 		lightningDirs,
-		exists: (p) => present.has(p),
+		isFile: (p) => present.has(p),
+		readText: (p) => files[p] ?? null,
 		wpCliCandidates: wpCliCandidates({ platform: 'win32', env: {} }),
 	};
 }
 
-function macCtx(existing, lightningDirs) {
+function macCtx(existing, lightningDirs, files = {}) {
 	const present = new Set(existing);
 	return {
 		platform: 'darwin',
@@ -32,7 +36,8 @@ function macCtx(existing, lightningDirs) {
 		dataDir: MAC_DATA,
 		sitesJsonPath: `${MAC_DATA}/sites.json`,
 		lightningDirs,
-		exists: (p) => present.has(p),
+		isFile: (p) => present.has(p),
+		readText: (p) => files[p] ?? null,
 		wpCliCandidates: wpCliCandidates({ platform: 'darwin' }),
 	};
 }
@@ -124,4 +129,54 @@ test('expandHome expands a leading tilde only', () => {
 	assert.equal(expandHome('~/Local Sites/edd', '/Users/mihai'), '/Users/mihai/Local Sites/edd');
 	assert.equal(expandHome('/srv/~/x', '/Users/mihai'), '/srv/~/x');
 	assert.equal(expandHome(undefined, '/Users/mihai'), undefined);
+});
+
+const MAC_SOCKET = `${MAC_DATA}/run/MacSite02/mysql/mysqld.sock`;
+const MAC_MY_CNF = `[mysqld]\nport = 10003\nsocket = ${MAC_SOCKET}\nskip-name-resolve\n`;
+
+test('socketFromMyCnf reads the socket line and prefers the client section', () => {
+	assert.equal(socketFromMyCnf(MAC_MY_CNF), MAC_SOCKET);
+	assert.equal(socketFromMyCnf('[mysqld]\r\nsocket = /srv/a.sock\r\n[client]\r\nsocket="/srv/b.sock"\r\n'), '/srv/b.sock');
+	assert.equal(socketFromMyCnf('[mysqld]\nport = 10003\n# socket = /commented.sock\n'), null);
+	assert.equal(socketFromMyCnf(null), null);
+});
+
+test('configFromLocal takes the MySQL socket from the site my.cnf on macOS', () => {
+	const config = configFromLocal(sites, 'edd-mac.local', macCtx([], ['php-8.2.27+1', 'mariadb-10.6.23+0'], {
+		[`${MAC_DATA}/run/MacSite02/conf/mysql/my.cnf`]: MAC_MY_CNF,
+	}));
+	assert.equal(config.mysql.socket, MAC_SOCKET);
+});
+
+test('configFromLocal leaves the socket unset on Windows even when my.cnf names one', () => {
+	const config = configFromLocal(sites, 'edd.local', windowsCtx([], undefined, {
+		[`${WIN_DATA}/run/WinSite01/conf/mysql/my.cnf`]: '[mysqld]\nport = 10005\nsocket = C:\\\\Users\\u\\mysqld.sock\n',
+	}));
+	assert.equal('socket' in config.mysql, false);
+});
+
+test('configFromLocal skips a directory at the php candidate path for the binary inside it', (t) => {
+	const dataDir = toSlash(fs.mkdtempSync(path.join(os.tmpdir(), 'wp-lanes-local-')));
+	t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+	const platDir = `${dataDir}/lightning-services/php-8.2.27+1/bin/darwin-arm64`;
+	fs.mkdirSync(`${platDir}/php`, { recursive: true });
+	fs.mkdirSync(`${platDir}/bin`, { recursive: true });
+	fs.writeFileSync(`${platDir}/bin/php`, '');
+
+	const config = configFromLocal(sites, 'edd-mac.local', {
+		...macCtx([], ['php-8.2.27+1', 'mariadb-10.6.23+0']),
+		dataDir,
+		isFile,
+	});
+	assert.equal(config.php[0], `${platDir}/bin/php`);
+});
+
+test('connArgs connects over the socket when one is configured', () => {
+	const args = connArgs({ mysql: { host: '127.0.0.1', port: 10003, user: 'root', socket: MAC_SOCKET } });
+	assert.deepEqual(args, ['--protocol=socket', `--socket=${MAC_SOCKET}`, '-u', 'root']);
+});
+
+test('connArgs connects over TCP when no socket is configured', () => {
+	const args = connArgs({ mysql: { host: '127.0.0.1', port: 10005, user: 'root' } });
+	assert.deepEqual(args, ['-h', '127.0.0.1', '-P', '10005', '-u', 'root']);
 });

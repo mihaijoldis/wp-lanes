@@ -43,6 +43,34 @@ function platformDirs(platform, arch) {
 	return ['linux'];
 }
 
+// A directory can sit at a binary's candidate path (Local's macOS PHP has `bin/darwin-arm64/php/`).
+export function isFile(p) {
+	try {
+		return fs.statSync(p).isFile();
+	} catch {
+		return false;
+	}
+}
+
+// The `socket =` value from a my.cnf, preferring the [client] section; null when there is none.
+export function socketFromMyCnf(text) {
+	let section = '';
+	const found = {};
+	for (const raw of String(text ?? '').split(/\r?\n/)) {
+		const line = raw.trim();
+		const header = /^\[([^\]]+)\]$/.exec(line);
+		if (header) {
+			section = header[1].trim().toLowerCase();
+			continue;
+		}
+		const match = /^socket\s*=\s*(.+)$/.exec(line);
+		if (match && !(section in found)) {
+			found[section] = match[1].trim().replace(/^(["'])(.*)\1$/, '$2');
+		}
+	}
+	return found.client ?? found.mysqld ?? Object.values(found)[0] ?? null;
+}
+
 export function findSiteByDomain(sites, domain) {
 	const wanted = domain.toLowerCase();
 	const matches = Object.entries(sites).filter(([, s]) => String(s?.domain ?? '').toLowerCase() === wanted);
@@ -68,7 +96,7 @@ function pickServiceBinary(ctx, service, binaryFor) {
 			candidates.push(...binaryFor(`${ctx.dataDir}/lightning-services/${dir}/bin/${plat}`));
 		}
 	}
-	return candidates.find((p) => ctx.exists(p)) ?? candidates[0] ?? null;
+	return candidates.find((p) => ctx.isFile(p)) ?? candidates[0] ?? null;
 }
 
 function build(dir, prefix) {
@@ -76,7 +104,7 @@ function build(dir, prefix) {
 }
 
 // Pure: everything machine-specific comes in through ctx, so tests can feed both platforms' shapes.
-// ctx: { platform, arch, home, dataDir, sitesJsonPath, lightningDirs, exists, wpCliCandidates }.
+// ctx: { platform, arch, home, dataDir, sitesJsonPath, lightningDirs, isFile, readText, wpCliCandidates }.
 export function configFromLocal(sites, domain, ctx) {
 	const { id, site } = findSiteByDomain(sites, domain);
 	const exe = ctx.platform === 'win32' ? '.exe' : '';
@@ -92,7 +120,9 @@ export function configFromLocal(sites, domain, ctx) {
 		throw new Error(`No lightning-services directory for ${!phpBinary ? `${php.name ?? 'php'}-${php.version}` : `${mysql.name ?? 'mysql'}-${mysql.version}`} under ${ctx.dataDir}/lightning-services.`);
 	}
 	const port = mysql.ports?.MYSQL?.[0];
-	const wpCli = ctx.wpCliCandidates.find((p) => ctx.exists(p)) ?? 'wp';
+	const wpCli = ctx.wpCliCandidates.find((p) => ctx.isFile(p)) ?? 'wp';
+	// Local's macOS root is granted only @localhost, so TCP is refused; Windows' socket line is unused.
+	const socket = ctx.platform === 'win32' ? null : socketFromMyCnf(ctx.readText(`${ctx.dataDir}/run/${id}/conf/mysql/my.cnf`));
 
 	return {
 		webRoot: toSlash(`${expandHome(site.path, ctx.home)}/app/public`),
@@ -103,6 +133,7 @@ export function configFromLocal(sites, domain, ctx) {
 			binDir: toSlash(path.posix.dirname(mysqlClient)),
 			host: '127.0.0.1',
 			port: Number(port ?? 3306),
+			...(socket && { socket }),
 			user: site.mysql?.user ?? 'root',
 			password: site.mysql?.password ?? 'root',
 			database: site.mysql?.database ?? 'local',
@@ -130,7 +161,8 @@ export function discoverLocalSite(domain, overrides = {}) {
 		dataDir,
 		sitesJsonPath,
 		lightningDirs: fs.existsSync(servicesDir) ? fs.readdirSync(servicesDir) : [],
-		exists: (p) => fs.existsSync(p),
+		isFile,
+		readText: (p) => (isFile(p) ? fs.readFileSync(p, 'utf8') : null),
 		wpCliCandidates: wpCliCandidates({ platform }),
 	});
 }

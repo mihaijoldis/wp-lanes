@@ -2,9 +2,9 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { mysqlPort, listSites, configRoot } from './config.js';
-import { localDataDir } from './local.js';
-import { bin, dbExists, query } from './db.js';
+import { listSites, configRoot } from './config.js';
+import { isFile, localDataDir } from './local.js';
+import { bin, dbExists, mysqlTarget, query } from './db.js';
 import { isShimInstalled, headSite } from './shim.js';
 import { allManifests } from './lane.js';
 import { runCapture } from './run.js';
@@ -15,12 +15,27 @@ function onPath(cmd) {
 	for (const dir of (process.env.PATH ?? '').split(path.delimiter).filter(Boolean)) {
 		for (const ext of exts) {
 			const candidate = path.join(dir, cmd + ext);
-			if (fs.existsSync(candidate)) {
+			if (isFile(candidate)) {
 				return candidate;
 			}
 		}
 	}
 	return null;
+}
+
+// The client's own `ERROR nnnn ...` line, not the wrapper text around it.
+function mysqlErrorLine(message) {
+	const lines = message.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+	return lines.find((l) => /ERROR \d+/.test(l))?.replace(/^.*?(ERROR \d+)/, '$1') ?? lines.at(-1) ?? message;
+}
+
+function mysqlHint(config, reinit) {
+	const { socket, localSiteId } = config.mysql;
+	if (!socket) {
+		return `MySQL did not answer on ${mysqlTarget(config)}. If the site is stopped, start it in Local; if it runs and only accepts a socket (\`socket =\` in Local's my.cnf), pass that path with --mysql-socket and ${reinit}.`;
+	}
+	const myCnf = localSiteId ? `${localDataDir()}/run/${localSiteId}/conf/mysql/my.cnf` : "the site's my.cnf";
+	return `MySQL did not answer on socket ${socket}. If the site is stopped, start it in Local; if it runs, compare that path with \`socket =\` in ${myCnf} and ${reinit}.`;
 }
 
 function siteFlag(config) {
@@ -42,8 +57,9 @@ export async function doctor(config) {
 	};
 	const domain = new URL(config.siteUrl).host;
 	const reinit = `re-run \`wp-lanes init-site ${config.name} --domain ${domain} --force\` (or edit ${config.file})`;
-	const pathLine = (label, p, required = true) => {
-		const exists = Boolean(p) && fs.existsSync(p);
+	// A binary or ini must be a file; a directory at that path is the wrong candidate.
+	const pathLine = (label, p, { required = true, file = false } = {}) => {
+		const exists = Boolean(p) && (file ? isFile(p) : fs.existsSync(p));
 		if (required) {
 			check(exists, label, `${p} (${exists ? 'exists' : 'missing'})`, `${label} is missing: ${reinit}.`);
 		} else {
@@ -56,17 +72,17 @@ export async function doctor(config) {
 	pathLine('web root', config.webRoot);
 	const hasWpConfig = pathLine('wp-config.php', config.wpConfig);
 	pathLine('plugins dir', config.pluginsDir);
-	pathLine('mu-plugins dir', config.muPluginsDir, false);
-	pathLine('lanes dir', config.lanesDir, false);
+	pathLine('mu-plugins dir', config.muPluginsDir, { required: false });
+	pathLine('lanes dir', config.lanesDir, { required: false });
 
 	const [php, ...phpArgs] = config.php;
-	const phpExists = pathLine('php binary', php);
+	const phpExists = pathLine('php binary', php, { file: true });
 	const iniIndex = phpArgs.indexOf('-c');
 	if (iniIndex !== -1) {
-		pathLine('php.ini', phpArgs[iniIndex + 1]);
+		pathLine('php.ini', phpArgs[iniIndex + 1], { file: true });
 	}
 	if (config.wpCli.endsWith('.phar')) {
-		pathLine('wp-cli phar', config.wpCli);
+		pathLine('wp-cli phar', config.wpCli, { file: true });
 	} else {
 		const found = onPath(config.wpCli);
 		if (check(Boolean(found), 'wp-cli on PATH', found ?? `${config.wpCli} (missing)`, `Install WP-CLI, or point wpCli at Local's wp-cli.phar: ${reinit}.`)) {
@@ -76,13 +92,17 @@ export async function doctor(config) {
 	}
 	if (config.mysql.binDir) {
 		pathLine('mysql bin dir', config.mysql.binDir);
-		pathLine('mysql client', bin(config, 'mysql'));
-		pathLine('mysqldump', bin(config, 'mysqldump'));
+		pathLine('mysql client', bin(config, 'mysql'), { file: true });
+		pathLine('mysqldump', bin(config, 'mysqldump'), { file: true });
 	} else {
 		for (const name of ['mysql', 'mysqldump']) {
 			const found = onPath(name);
 			check(Boolean(found), `${name} on PATH`, found ?? 'missing', `${name} is not on PATH; set mysql.binDir: ${reinit}.`);
 		}
+	}
+	if (config.mysql.socket) {
+		const present = fs.existsSync(config.mysql.socket);
+		check(present, 'mysql socket', `${config.mysql.socket} (${present ? 'exists' : 'missing'})`, `The MySQL socket ${config.mysql.socket} is missing: start the site in Local; if it runs, ${reinit}.`);
 	}
 	if (config.mysql.localSitesJson && pathLine('Local sites.json', config.mysql.localSitesJson)) {
 		let site = null;
@@ -108,13 +128,13 @@ export async function doctor(config) {
 		check(phpRun.code === 0, 'php runs', phpRun.code === 0 ? phpRun.stdout.trim().split('\n').pop() : phpRun.stderr.trim(), `php does not run: ${reinit}.`);
 	}
 
-	const port = mysqlPort(config);
+	const target = mysqlTarget(config);
 	try {
 		query(config, 'SELECT 1');
-		report('OK', 'mysql reachable', `${config.mysql.host}:${port}`);
+		report('OK', 'mysql reachable', target);
 		check(dbExists(config, config.mysql.database), 'base database exists', config.mysql.database, `Database ${config.mysql.database} is missing: ${reinit}.`);
 	} catch (e) {
-		check(false, 'mysql reachable', `${config.mysql.host}:${port}: ${e.message}`, `MySQL did not answer: start the site in Local, then run \`wp-lanes doctor${siteFlag(config)}\` again.`);
+		check(false, 'mysql reachable', `${target}: ${mysqlErrorLine(e.message)}`, mysqlHint(config, reinit));
 	}
 
 	const rel = path.relative(config.webRoot, config.lanesDir);

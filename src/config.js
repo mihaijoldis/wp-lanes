@@ -46,7 +46,7 @@ export function withDefaults(config) {
 		...(config.php && { php: config.php.map((p) => expandHome(p)) }),
 		...(config.wpCli && { wpCli: expandHome(config.wpCli) }),
 		...(config.mysql && {
-			mysql: { ...config.mysql, binDir: expandHome(config.mysql.binDir), localSitesJson: expandHome(config.mysql.localSitesJson) },
+			mysql: { ...config.mysql, binDir: expandHome(config.mysql.binDir), socket: expandHome(config.mysql.socket), localSitesJson: expandHome(config.mysql.localSitesJson) },
 		}),
 		pluginsDir: expandHome(config.pluginsDir) ?? path.join(wpContent, 'plugins'),
 		muPluginsDir: expandHome(config.muPluginsDir) ?? path.join(wpContent, 'mu-plugins'),

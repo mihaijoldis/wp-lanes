@@ -17,7 +17,7 @@ const USAGE = `Usage: wp-lanes <command> [--site <name>] ...
             Reads Local's sites.json; any flag below overrides what it finds.
   init-site <name> --web-root <dir> --site-url <url> --php <php> [--php-arg <arg>]...
             --wp-cli <phar|wp> --mysql-bin <dir> [--mysql-host 127.0.0.1] [--mysql-port 3306]
-            [--mysql-user root] [--mysql-password root] [--mysql-database local]
+            [--mysql-socket <file>] [--mysql-user root] [--mysql-password root] [--mysql-database local]
             [--local-sites-json <file> --local-site-id <id>] [--plugins-dir <dir>]
             [--mu-plugins-dir <dir>] [--wp-config <file>] [--force]
   install-shim
@@ -80,6 +80,7 @@ function buildSiteConfig(flags) {
 	const mysqlIn = found.mysql ?? {};
 	const localSitesJson = flagPath('local-sites-json', mysqlIn.localSitesJson);
 	const localSiteId = flags['local-site-id'] ?? mysqlIn.localSiteId;
+	const mysqlSocket = flagPath('mysql-socket', mysqlIn.socket);
 	return {
 		webRoot: required(flagPath('web-root', found.webRoot), 'web-root'),
 		siteUrl: required(flags['site-url'] ?? found.siteUrl, 'site-url'),
@@ -95,6 +96,7 @@ function buildSiteConfig(flags) {
 			binDir: flagPath('mysql-bin', mysqlIn.binDir ?? ''),
 			host: flags['mysql-host'] ?? mysqlIn.host ?? '127.0.0.1',
 			port: Number(flags['mysql-port'] ?? mysqlIn.port ?? 3306),
+			...(mysqlSocket && { socket: mysqlSocket }),
 			user: flags['mysql-user'] ?? mysqlIn.user ?? 'root',
 			password: flags['mysql-password'] ?? mysqlIn.password ?? 'root',
 			database: flags['mysql-database'] ?? mysqlIn.database ?? 'local',
