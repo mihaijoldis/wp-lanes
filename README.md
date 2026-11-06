@@ -14,8 +14,8 @@ agents test different branches against the same local site in parallel.
 - Git, with the plugins under test checked out as git repositories inside `wp-content/plugins`.
 - Windows (junctions, so no admin rights), macOS or Linux (symlinks).
 
-[Local](https://localwp.com/) sites are discovered automatically; any other stack works with
-explicit flags.
+Sites made with [Local by Flywheel](https://localwp.com/) (the desktop app, "Local" below) are
+configured automatically; any other local stack works with explicit flags.
 
 ## Install
 
@@ -41,14 +41,15 @@ wp-lanes install-shim      # once per site; patches wp-config.php and prints the
 
 `doctor` prints every resolved path with `exists` or `missing` and ends with a `Next:` line naming
 the command to run. Run it before `install-shim`: the shim shows as `TODO`, not as a failure. Run
-with no site configured, it lists the domains Local knows and the `init-site` line for each.
+with no site configured, it lists the domains Local by Flywheel knows and the `init-site` line for
+each.
 
 If the site's config file already exists, `init-site` does nothing when the result is identical,
 and otherwise prints a diff (password redacted) and stops. Pass `--force` to overwrite.
 
-### Local auto-discovery
+### Local by Flywheel auto-discovery
 
-`init-site <name> --domain <domain>` reads Local's `sites.json`, finds the site with that domain and
+`init-site <name> --domain <domain>` reads Local by Flywheel's `sites.json`, finds the site with that domain and
 fills in the config:
 
 - **Web root:** `<site.path>/app/public` (a leading `~` in `site.path` is expanded).
@@ -63,12 +64,12 @@ fills in the config:
 - **MySQL user, password, database:** the site's `mysql` record.
 - **WP-CLI:** Local's bundled `wp-cli.phar`, else `wp` on PATH.
 
-`<Local>` is `%APPDATA%/Local` on Windows and `~/Library/Application Support/Local` on macOS.
+`<Local>` is Local by Flywheel's data directory: `%APPDATA%/Local` on Windows and `~/Library/Application Support/Local` on macOS.
 `<platform>` is `win64` on Windows, `darwin-arm64` then `darwin` on macOS. When several builds of
 the version exist, the newest one whose binary is present wins; a candidate counts only if it is a
 file, not a directory of the same name.
 
-After a Local update changes the site's PHP version or its `run/<id>` directory,
+After a Local by Flywheel update changes the site's PHP version or its `run/<id>` directory,
 `init-site <name> --domain <domain> --force` picks up the new paths; the diff it prints first shows
 what moved.
 
@@ -158,7 +159,7 @@ Temporary mu-plugins for a test go in `wp-content/lanes/<lane>/mu-plugins/`, nev
 
 | Command | What it does |
 | --- | --- |
-| `init-site <name> --domain <domain>` | Writes the site config from Local's records; flags override. |
+| `init-site <name> --domain <domain>` | Writes the site config from Local by Flywheel's records; flags override. |
 | `install-shim` | Patches `wp-config.php` with the lane selector (once per site). |
 | `up <lane> --from <worktree>` | Detects the overridden plugins, builds the lane, clones the DB. `--from` may repeat. |
 | `up <lane> --override <pluginDir>=<path>` | Overrides one plugin dir explicitly. May repeat and mix with `--from`. |
@@ -210,7 +211,7 @@ wp-lanes wp fix -- action-scheduler run
 
 ## Limits
 
-- Local runs 2 PHP workers for the whole site (php-cgi on Windows, a static php-fpm pool on
+- Local by Flywheel runs 2 PHP workers for the whole site (php-cgi on Windows, a static php-fpm pool on
   macOS), so requests across all lanes queue once more than 2 are in flight.
 - Each lane DB is a full copy of the base DB; `up` takes a few seconds per 25 MB.
 - A `--no-db` lane shares the base database, so its writes change the base site.
@@ -229,18 +230,20 @@ curl -skI -H "X-WP-Lane: smoke" https://mysite.local/   # shows X-WP-Lane: smoke
 wp-lanes down smoke
 ```
 
-Never copy `~/.wp-lanes/sites/*.json` between machines: Local gives the same site a different id on
+Never copy `~/.wp-lanes/sites/*.json` between machines: Local by Flywheel gives the same site a different id on
 each machine, so the php.ini path and `localSiteId` differ. Run `init-site --domain` on each.
 
 ## Known differences on macOS
 
+These notes are about Local by Flywheel's bundled services on a Mac.
+
 - **Symlinks instead of junctions.** Lane plugin dirs are symlinks; `down` unlinks each one and
   never descends into it. No admin rights are needed on either platform.
-- **php-fpm instead of php-cgi.** Local on macOS runs PHP-FPM with `pm = static` and
+- **php-fpm instead of php-cgi.** Local by Flywheel on macOS runs PHP-FPM with `pm = static` and
   `pm.max_children = 2` (`php-fpm.d/www.conf`), so both platforms queue requests once more than 2
   are in flight (see "Limits").
 - **sites.json location.** `~/Library/Application Support/Local/sites.json`. `site.path` there is
-  `~/Local Sites/<name>` (with a space) on a fresh Local install, but whatever the site was created
+  `~/Local Sites/<name>` (with a space) on a fresh Local by Flywheel install, but whatever the site was created
   with otherwise. Discovery uses the value as stored.
 - **PHP binary dir.** `.../bin/darwin-arm64/bin/php` (Apple silicon) or `.../bin/darwin/bin/php`
   (Intel). `.../bin/darwin-arm64/php` also exists there, as a directory, so discovery accepts only
@@ -277,7 +280,7 @@ git worktree of that repo (git -C <site path>/wp-content/plugins/<plugin> worktr
 <sha-or-branch>), run `wp-lanes up <name> --from <worktree>` (clones the DB), send
 `X-WP-Lane: <name>` on every request or use `wp-lanes wp <name> -- <wp-cli args>`, confirm the
 X-WP-Lane response header once, and `wp-lanes down <name>` when done. Requests without a selector
-(cron, inbound webhooks) hit the base site, and Local gives the site 2 PHP workers.
+(cron, inbound webhooks) hit the base site, and Local by Flywheel gives the site 2 PHP workers.
 ```
 
 ## Uninstall
