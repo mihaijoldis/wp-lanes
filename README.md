@@ -1,5 +1,7 @@
 # wp-lanes
 
+![How wp-lanes works: each request passes through a shim in wp-config.php that sends it to its lane's own plugin directory and database clone, or to the base site when no lane is named.](docs/overview.svg)
+
 Test several branches live on one WordPress site at the same time. Each **lane** has its own plugin
 directory (a farm of links to the base plugins, with the plugins under test pointing at a git
 worktree) and its own clone of the database. The base checkout never switches branches; a request

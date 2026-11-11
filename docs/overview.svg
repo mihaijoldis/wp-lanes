@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1020 666" role="img">
+<title>How wp-lanes works: each request passes through a shim in wp-config.php that sends it to its lane's own plugin directory and database clone, or to the base site when no lane is named.</title>
+<style>
+svg{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+.bg{fill:#fff;stroke:#d0d7de}
+.panel{fill:#f6f8fa;stroke:#d0d7de}
+.box{fill:#fff;stroke:#d0d7de}
+.txt{fill:#1f2328}.mut{fill:#59636e}
+.af{fill:#ddf4ff}.as{stroke:#0969da}.at{fill:#0550ae}.al{stroke:#0969da}
+.bf{fill:#fff1e5}.bs{stroke:#bc4c00}.bt{fill:#953800}.bl{stroke:#bc4c00}
+.nf{fill:#f6f8fa}.ns{stroke:#8c959f}.nt{fill:#1f2328}.nl{stroke:#6e7781}
+.mkA{fill:#0969da}.mkB{fill:#bc4c00}.mkN{fill:#6e7781}.mkM{fill:#59636e}
+.cyl{fill:none}
+.card,.cyl,.dash{stroke-width:1.5}
+rect.af,rect.bf,rect.nf{stroke-width:1.5}
+.box{stroke-width:1}
+.arr{stroke-width:2;fill:none}.pass{stroke-width:2;opacity:.3}
+.dash{stroke:#59636e;fill:none;stroke-dasharray:5 4}
+.shim{fill:#f6f8fa;stroke:#8c959f;stroke-width:1.5}
+text{font-size:13px}
+.h{font-size:15px;font-weight:600}.ttl{font-size:18px;font-weight:700}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px}
+.b{font-weight:700}.sb{font-weight:600}.mid{text-anchor:middle}.end{text-anchor:end}
+@media (prefers-color-scheme:dark){
+.bg{fill:#0d1117;stroke:#30363d}
+.box{fill:#0d1117;stroke:#30363d}
+.txt{fill:#e6edf3}.mut{fill:#9198a1}
+.af{fill:#0c2d4a}.as{stroke:#58a6ff}.at{fill:#79c0ff}.al{stroke:#58a6ff}
+.bf{fill:#3a2208}.bs{stroke:#f0883e}.bt{fill:#ffa657}.bl{stroke:#f0883e}
+.nf{fill:#161b22}.ns{stroke:#6e7681}.nt{fill:#e6edf3}.nl{stroke:#8b949e}
+.mkA{fill:#58a6ff}.mkB{fill:#f0883e}.mkN{fill:#8b949e}.mkM{fill:#9198a1}
+.dash{stroke:#9198a1}
+.shim{fill:#161b22;stroke:#6e7681}
+.panel{fill:#161b22;stroke:#30363d}
+}
+</style>
+<defs>
+<marker id="ma" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path class="mkA" d="M0 0L10 5L0 10z"/></marker>
+<marker id="mb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path class="mkB" d="M0 0L10 5L0 10z"/></marker>
+<marker id="mn" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path class="mkN" d="M0 0L10 5L0 10z"/></marker>
+<marker id="mM" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path class="mkM" d="M0 0L10 5L0 10z"/></marker>
+</defs>
+<rect class="bg" x="0.5" y="0.5" width="1019" height="665" rx="10"/>
+<text class="ttl txt" x="16" y="36">How wp-lanes works</text>
+<text class="mut" x="16" y="56">One WordPress site, several branches at the same time</text>
+<rect class="shim" x="242" y="84" width="210" height="492" rx="10"/>
+<rect class="card af as" x="16" y="110" width="196" height="96" rx="8"/><text class="h at" x="28" y="150">curl / Playwright</text><text class="mono txt" x="28" y="176">X-WP-Lane: fix</text><line class="pass al" x1="242" y1="158" x2="452" y2="158"/><line class="arr al" x1="212" y1="158" x2="239" y2="158" marker-end="url(#ma)"/><line class="arr al" x1="452" y1="158" x2="479" y2="158" marker-end="url(#ma)"/><rect class="af as" x="482" y="84" width="522" height="148" rx="10"/><text class="h at" x="524" y="105">Lane fix</text><rect class="box" x="524" y="114" width="304" height="106" rx="6"/><text class="mono txt" x="538" y="134">wp-content/lanes/fix/plugins/</text><rect class="af as" x="532" y="144" width="288" height="37" rx="4"/><text class="mono b at" x="538" y="159">my-plugin</text><text class="sm sb at" x="538" y="174">→ git worktree (branch under test)</text><text class="sm mut" x="538" y="199">all other plugins</text><text class="sm mut" x="538" y="214">→ links to base</text><rect class="box" x="840" y="114" width="152" height="106" rx="6"/><path class="cyl as" d="M890 133 v32 a26 7 0 0 0 52 0 v-32"/><ellipse class="cyl as" cx="916" cy="133" rx="26" ry="7"/><text class="mono txt mid" x="916" y="192">local_lane_fix</text><text class="sm mut mid" x="916" y="210">clone of base DB</text><rect class="card bf bs" x="16" y="282" width="196" height="96" rx="8"/><text class="h bt" x="28" y="322">Browser</text><text class="mono txt" x="28" y="348">cookie wp_lane=feat</text><line class="pass bl" x1="242" y1="330" x2="452" y2="330"/><line class="arr bl" x1="212" y1="330" x2="239" y2="330" marker-end="url(#mb)"/><line class="arr bl" x1="452" y1="330" x2="479" y2="330" marker-end="url(#mb)"/><rect class="bf bs" x="482" y="256" width="522" height="148" rx="10"/><text class="h bt" x="524" y="277">Lane feat</text><rect class="box" x="524" y="286" width="304" height="106" rx="6"/><text class="mono txt" x="538" y="306">wp-content/lanes/feat/plugins/</text><rect class="bf bs" x="532" y="316" width="288" height="37" rx="4"/><text class="mono b bt" x="538" y="331">other-plugin</text><text class="sm sb bt" x="538" y="346">→ git worktree (branch under test)</text><text class="sm mut" x="538" y="371">all other plugins</text><text class="sm mut" x="538" y="386">→ links to base</text><rect class="box" x="840" y="286" width="152" height="106" rx="6"/><path class="cyl bs" d="M890 305 v32 a26 7 0 0 0 52 0 v-32"/><ellipse class="cyl bs" cx="916" cy="305" rx="26" ry="7"/><text class="mono txt mid" x="916" y="364">local_lane_feat</text><text class="sm mut mid" x="916" y="382">clone of base DB</text><rect class="card nf ns" x="16" y="454" width="196" height="96" rx="8"/><text class="h txt" x="28" y="488">No lane named</text><text class="sm mut" x="28" y="510">visitors, WP-Cron,</text><text class="sm mut" x="28" y="528">webhooks, loopbacks</text><line class="pass nl" x1="242" y1="502" x2="452" y2="502"/><line class="arr nl" x1="212" y1="502" x2="239" y2="502" marker-end="url(#mn)"/><line class="arr nl" x1="452" y1="502" x2="479" y2="502" marker-end="url(#mn)"/><rect class="nf ns" x="482" y="428" width="522" height="148" rx="10"/><text class="h nt" x="524" y="449">Base site</text><rect class="box" x="524" y="458" width="304" height="106" rx="6"/><text class="mono txt" x="538" y="478">wp-content/plugins/</text><text class="sm mut" x="538" y="504">base checkout, never switches branch</text><rect class="box" x="840" y="458" width="152" height="106" rx="6"/><path class="cyl ns" d="M890 477 v32 a26 7 0 0 0 52 0 v-32"/><ellipse class="cyl ns" cx="916" cy="477" rx="26" ry="7"/><text class="mono txt mid" x="916" y="536">local</text><text class="sm mut mid" x="916" y="554">base database</text><path class="dash" d="M524 191 H498 V528 H521" marker-end="url(#mM)"/><path class="dash" d="M524 363 H498"/><text class="sm mut" x="506" y="420">links</text>
+<text class="mono b txt" x="258" y="110" style="font-size:15px">wp-config.php</text>
+<text class="mut" x="258" y="128">lane shim</text>
+<text class="mut" x="258" y="144">(runs on every request)</text>
+<text class="txt" x="258" y="200">1. X-WP-Lane header</text>
+<text class="txt" x="258" y="222">2. ?wp_lane= query arg</text>
+<text class="txt" x="258" y="244">3. wp_lane cookie</text>
+<text class="txt" x="258" y="266">4. WP_LANE env (CLI)</text>
+<text class="mut" x="258" y="374">requires</text>
+<text class="mono txt" x="258" y="394">lanes/&lt;lane&gt;/lane.php</text>
+<text class="mut" x="258" y="420">sets DB_NAME and</text>
+<text class="mut" x="258" y="436">WP_PLUGIN_DIR</text>
+<rect class="panel" x="16" y="600" width="988" height="50" rx="8"/>
+<text class="txt" x="32" y="630">Every lane response says which lane answered: <tspan class="mono">X-WP-Lane: fix</tspan> and <tspan class="mono">X-WP-Lane-DB: local_lane_fix</tspan></text>
+<text class="mut end" x="988" y="630">The base site sends neither.</text>
+</svg>
