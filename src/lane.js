@@ -66,11 +66,13 @@ function resolveOverrides(config, froms, overrideFlags) {
 }
 
 // Links each directory entry of `source` into `dest`, copies loose *.php files, skips dot entries.
-function mirror(source, dest, overrides = {}) {
+export function mirror(source, dest, overrides = {}) {
 	fs.mkdirSync(dest, { recursive: true });
+	// A branch can rename a plugin dir by case only; its override replaces the base dir on every OS.
+	const overridden = new Set(Object.keys(overrides).map((entry) => entry.toLowerCase()));
 	if (fs.existsSync(source)) {
 		for (const entry of fs.readdirSync(source)) {
-			if (entry.startsWith('.') || entry in overrides) {
+			if (entry.startsWith('.') || overridden.has(entry.toLowerCase())) {
 				continue;
 			}
 			const abs = path.join(source, entry);

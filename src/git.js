@@ -76,13 +76,16 @@ function monorepoOverrides(config, from) {
 	const changed = git(top, ['diff', '--name-only', mergeBase]).split('\n');
 	const untracked = git(top, ['ls-files', '--others', '--exclude-standard', '--directory']).split('\n');
 
+	// A case-only rename lists both spellings, and the old one still resolves on a case-insensitive disk.
+	const onDisk = new Map(fs.readdirSync(top).map((entry) => [entry.toLowerCase(), entry]));
 	const overrides = {};
 	const skipped = new Set();
 	for (const file of [...changed, ...untracked]) {
 		if (!file) {
 			continue;
 		}
-		const first = file.split('/')[0];
+		const named = file.split('/')[0];
+		const first = onDisk.get(named.toLowerCase()) ?? named;
 		const abs = path.join(top, first);
 		if (first.startsWith('.') || !file.includes('/') || !fs.existsSync(abs) || !fs.statSync(abs).isDirectory()) {
 			skipped.add(first);
